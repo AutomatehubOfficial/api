@@ -1,0 +1,404 @@
+openapi: 3.0.0
+info:
+  title: Freemium API Service
+  version: 1.0.0
+  description: API service for managing users and subscriptions with freemium functionality.
+servers:
+  - url: http://localhost:3000
+paths:
+  /users:
+    get:
+      summary: Retrieve a list of users
+      operationId: getUsers
+      responses:
+        '200':
+          description: A list of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+    post:
+      summary: Create a new user
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+  /subscriptions:
+    get:
+      summary: Retrieve a list of subscriptions
+      operationId: getSubscriptions
+      responses:
+        '200':
+          description: A list of subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Subscription'
+    post:
+      summary: Create a new subscription
+      operationId: createSubscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Subscription'
+      responses:
+        '201':
+          description: Subscription created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+  /payments/customers:
+    post:
+      summary: Create a new Stripe customer
+      operationId: createCustomer
+      tags:
+        - Payments
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - name
+              properties:
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId:
+                    type: string
+        '400':
+          description: Bad request
+        '500':
+          description: Server error
+  /payments/checkout-sessions:
+    post:
+      summary: Create a checkout session for subscription
+      operationId: createCheckoutSession
+      tags:
+        - Payments
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customerId
+                - tier
+                - successUrl
+                - cancelUrl
+              properties:
+                customerId:
+                  type: string
+                tier:
+                  type: string
+                  enum: [free, basic, premium]
+                successUrl:
+                  type: string
+                  format: uri
+                cancelUrl:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: Checkout session created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId:
+                    type: string
+                  url:
+                    type: string
+                    format: uri
+        '400':
+          description: Bad request
+        '500':
+          description: Server error
+  /payments/subscriptions:
+    post:
+      summary: Create a subscription for a customer
+      operationId: createStripeSubscription
+      tags:
+        - Payments
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customerId
+                - tier
+              properties:
+                customerId:
+                  type: string
+                tier:
+                  type: string
+                  enum: [free, basic, premium]
+      responses:
+        '201':
+          description: Subscription created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscriptionId:
+                    type: string
+                  clientSecret:
+                    type: string
+                  status:
+                    type: string
+        '400':
+          description: Bad request
+        '500':
+          description: Server error
+  /payments/subscriptions/{subscriptionId}:
+    parameters:
+      - name: subscriptionId
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      summary: Cancel a subscription
+      operationId: cancelSubscription
+      tags:
+        - Payments
+      security:
+        - apiKey: []
+      responses:
+        '200':
+          description: Subscription canceled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Bad request
+        '404':
+          description: Subscription not found
+        '500':
+          description: Server error
+    put:
+      summary: Update a subscription to a new tier
+      operationId: updateSubscription
+      tags:
+        - Payments
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tier
+              properties:
+                tier:
+                  type: string
+                  enum: [basic, premium]
+      responses:
+        '200':
+          description: Subscription updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscriptionId:
+                    type: string
+                  status:
+                    type: string
+        '400':
+          description: Bad request
+        '404':
+          description: Subscription not found
+        '500':
+          description: Server error
+  /payments/billing-portal:
+    post:
+      summary: Create a billing portal session
+      operationId: createBillingPortalSession
+      tags:
+        - Payments
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customerId
+                - returnUrl
+              properties:
+                customerId:
+                  type: string
+                returnUrl:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: Billing portal session created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+        '400':
+          description: Bad request
+        '500':
+          description: Server error
+  /webhooks/stripe:
+    post:
+      summary: Handle Stripe webhook events
+      operationId: handleWebhook
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Webhook processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+                  type:
+                    type: string
+        '400':
+          description: Invalid webhook signature
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        stripeCustomerId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        stripeSubscriptionId:
+          type: string
+        tier:
+          type: string
+          enum: [free, basic, premium]
+        status:
+          type: string
+          enum: [active, inactive, past_due, canceled, unpaid]
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PaymentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        stripePaymentMethodId:
+          type: string
+        type:
+          type: string
+          enum: [card, bank_account]
+        isDefault:
+          type: boolean
+        last4:
+          type: string
+        brand:
+          type: string
+        expMonth:
+          type: integer
+        expYear:
+          type: integer
+security:
+  - apiKey: []
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      name: Authorization
+      in: header
+tags:
+  - name: Users
+    description: Operations related to users
+  - name: Subscriptions
+    description: Operations related to subscriptions
